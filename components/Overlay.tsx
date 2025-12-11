@@ -30,7 +30,7 @@ const SnowOverlay: React.FC = () => {
       snowflakes.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        r: Math.random() * 3 + 1, // Radius
+        r: Math.random() * 5 + 4, // Radius INCREASED: 4px to 9px
         s: Math.random() * 1 + 0.5, // Speed
         o: Math.random() * 0.5 + 0.3 // Opacity
       });
@@ -329,12 +329,12 @@ const Overlay: React.FC<OverlayProps> = ({ mode, setMode }) => {
 
                     <div className="flex flex-col gap-2 pt-2 pl-2 items-end text-right pr-2">
                         {/* Font: NSimSun */}
-                        {/* CHANGED: Text Color to Pink (text-pink-600) */}
-                        <h3 className="text-pink-600 font-bold text-3xl sm:text-5xl tracking-wide leading-none" style={{ fontFamily: '"NSimSun", serif' }}>
+                        {/* CHANGED: Text Color to Background Pink (COLORS.sakuraPink) */}
+                        <h3 className="font-bold text-3xl sm:text-5xl tracking-wide leading-none" style={{ fontFamily: '"NSimSun", serif', color: COLORS.sakuraPink }}>
                             打开盒子
                         </h3>
-                        <div className="w-full h-[1px] bg-pink-400 opacity-40 my-1"></div>
-                        <p className="text-pink-500 text-xs sm:text-base font-bold leading-relaxed tracking-wider opacity-90" style={{ fontFamily: '"NSimSun", serif' }}>
+                        <div className="w-full h-[1px] opacity-50 my-1" style={{ backgroundColor: COLORS.sakuraPink }}></div>
+                        <p className="text-xs sm:text-base font-bold leading-relaxed tracking-wider opacity-90" style={{ fontFamily: '"NSimSun", serif', color: COLORS.sakuraPink }}>
                             A6的圣诞盒子
                         </p>
                     </div>
