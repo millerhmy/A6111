@@ -30,7 +30,7 @@ const SnowOverlay: React.FC = () => {
       snowflakes.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        r: Math.random() * 5 + 4, // Radius INCREASED: 4px to 9px
+        r: Math.random() * 3 + 2, // Radius DECREASED: 2px to 5px
         s: Math.random() * 1 + 0.5, // Speed
         o: Math.random() * 0.5 + 0.3 // Opacity
       });

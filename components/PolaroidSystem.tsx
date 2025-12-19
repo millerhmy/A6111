@@ -45,64 +45,61 @@ const Polaroid: React.FC<{
     let targetPos: THREE.Vector3;
     let targetRot: THREE.Euler;
     
-    // CHAOS = Scattered
-    // FORMED = Tree Cone
     if (mode === TreeMode.FORMED) {
         targetPos = new THREE.Vector3(...treePos);
         targetRot = new THREE.Euler(...treeRot);
     } else {
-        // Default to Chaos position for CHAOS, TEXT, GIFT (though visibility handles TEXT/GIFT)
+        // Default to Chaos position
         targetPos = new THREE.Vector3(...chaosPos);
         targetRot = new THREE.Euler(...chaosRot);
     }
 
     // 1. Floating Animation
-    // Add floating to Y for aliveness
     const floatY = Math.sin(t * floatSpeed.current + floatOffset.current) * 0.1;
     targetPos.y += floatY;
 
     // 2. Interpolate Position
-    // Use a smooth lerp factor
     const lerpFactor = delta * 2.0;
     groupRef.current.position.lerp(targetPos, lerpFactor);
 
     // 3. Interpolate Rotation
-    // Create Quaternions for smooth rotation transition
     const currentQ = groupRef.current.quaternion;
-    const targetQ = new THREE.Quaternion().setFromEuler(targetRot);
+    let targetQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(...targetRot));
     
-    // Add a gentle sway to the target rotation if formed
-    if (mode === TreeMode.FORMED && !hovered) {
+    if (mode === TreeMode.CHAOS) {
+         // "Position the Polaroid camera directly facing the scene"
+         // Make the photo face the center (0, 5, 0)
+         const center = new THREE.Vector3(0, 5, 0);
+         const lookMat = new THREE.Matrix4();
+         lookMat.lookAt(groupRef.current.position, center, new THREE.Vector3(0, 1, 0));
+         targetQ.setFromRotationMatrix(lookMat);
+         
+         // Add a very slight organic wobble
+         const wobble = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+             Math.sin(t * 0.3) * 0.1,
+             Math.cos(t * 0.4) * 0.1,
+             0
+         ));
+         targetQ.multiply(wobble);
+    } else if (mode === TreeMode.FORMED && !hovered) {
          const sway = Math.sin(t * 0.5 + floatOffset.current) * 0.05;
          const swayQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, sway));
          targetQ.multiply(swayQ);
-    } else if (mode === TreeMode.CHAOS) {
-         // Tumble slowly in chaos
-         const tumble = t * 0.1;
-         const tumbleQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(tumble, tumble, 0));
-         targetQ.multiply(tumbleQ);
     }
     
     groupRef.current.quaternion.slerp(targetQ, lerpFactor);
 
     // 4. Scale/Visibility Logic
-    // Show in CHAOS and FORMED. Hide in TEXT and GIFT.
     const isVisible = (mode === TreeMode.CHAOS || mode === TreeMode.FORMED);
-    
-    // Base scale logic
     let targetScale = isVisible ? 1 : 0;
-    
-    // Hover effect
     if (isVisible && hovered) targetScale *= 1.3;
 
-    // Smooth transition for scale
     groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
   });
 
   return (
     <group 
         ref={groupRef} 
-        // Initial placement
         position={chaosPos} 
         rotation={chaosRot}
         onPointerOver={(e) => { e.stopPropagation(); setHover(true); document.body.style.cursor = 'pointer'; }}
@@ -114,7 +111,7 @@ const Polaroid: React.FC<{
         <meshStandardMaterial color="#ffffff" roughness={0.4} />
       </mesh>
       
-      {/* Photo Image - Position adjusted downwards (0.15 -> 0.08) for better framing */}
+      {/* Photo Image */}
       <Image 
         url={url} 
         position={[0, 0.08, 0.02]}
@@ -122,7 +119,7 @@ const Polaroid: React.FC<{
         transparent
       />
       
-      {/* Handwritten Text Placeholder (Line) */}
+      {/* Handwritten Text Placeholder */}
       <mesh position={[0, -0.55, 0.02]}>
           <planeGeometry args={[0.8, 0.02]} />
           <meshBasicMaterial color="#ccc" transparent opacity={0.5} />
@@ -132,62 +129,31 @@ const Polaroid: React.FC<{
 };
 
 const PolaroidSystem: React.FC<PolaroidSystemProps> = ({ mode }) => {
-  // Generate random positions around the tree
   const polaroids = useMemo(() => {
-    // const count = IMAGES.length; // Not needed for random distribution
     const treeHeight = 15;
     const treeBase = 5.5;
     
     return IMAGES.map((url, i) => {
-      // 1. TREE STATE (Cone Surface)
-      // Random Distribution instead of Spiral
-      
-      // Random height between bottom and top of foliage area
       const yMin = 1.5;
       const yMax = 12.5;
-      const yRange = yMax - yMin;
-      const y = yMin + Math.random() * yRange;
-      
-      // Calculate Cone Radius at this height
-      // Formula: r = base * (1 - y/h)
-      // Add slight offset (1.5) so photos hover *above* the leaves
+      const y = yMin + Math.random() * (yMax - yMin);
       const radiusAtHeight = (treeBase + 1.2) * (1 - (y / treeHeight));
-      
-      // Random Angle around the cone
       const angle = Math.random() * Math.PI * 2;
-      
       const tx = Math.cos(angle) * radiusAtHeight;
       const tz = Math.sin(angle) * radiusAtHeight;
-      
-      // ROTATION:
-      // 1. Face Outward: Y rotation = -angle + PI/2
-      // Add random Y jitter so they aren't perfectly aligned to center
       const rotY = -angle + Math.PI / 2 + (Math.random() - 0.5) * 0.5;
-      
-      // 2. Tilt Back: X rotation to match cone slope
       const coneTilt = -Math.atan(treeBase / treeHeight);
-      // Add significant randomness to X/Z tilt to make them look tossed/stuck
-      const rotX = coneTilt + (Math.random() - 0.5) * 0.6; // +/- 0.3 rad tilt variation
-      const rotZ = (Math.random() - 0.5) * 0.6; // +/- 0.3 rad swing variation
+      const rotX = coneTilt + (Math.random() - 0.5) * 0.6;
+      const rotZ = (Math.random() - 0.5) * 0.6;
       
       const treePos: [number, number, number] = [tx, y, tz];
       const treeRot: [number, number, number] = [rotX, rotY, rotZ];
 
-      // 2. CHAOS STATE (Scattered in Space)
-      // Use helper to get a point in a large sphere
       const chaosPos = getRandomSpherePoint(20); 
-      // Ensure they aren't underground
       chaosPos[1] = Math.max(chaosPos[1], 1); 
       const chaosRot = getRandomRotation();
 
-      return {
-        url,
-        chaosPos,
-        chaosRot,
-        treePos,
-        treeRot,
-        scaleOffset: Math.random()
-      };
+      return { url, chaosPos, chaosRot, treePos, treeRot, scaleOffset: Math.random() };
     });
   }, []);
 

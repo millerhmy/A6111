@@ -10,7 +10,6 @@
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Dancing+Script:wght@700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Rubik+Scribble&family=Mountains+of+Christmas:wght@400;700&family=Cinzel+Decorative:wght@700;900&family=Noto+Serif+SC:wght@700&display=swap');
       
-      /* NSimSun approximation using Noto Serif SC */
       @font-face {
         font-family: 'NSimSun';
         src: local('NSimSun'), url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700&display=swap');
@@ -54,832 +53,120 @@
       import { Image, Environment, OrbitControls, Stars } from '@react-three/drei';
       import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 
-      // --- TYPES ---
-      const TreeMode = {
-        CHAOS: 'CHAOS',
-        FORMED: 'FORMED',
-        TEXT: 'TEXT',
-        GIFT: 'GIFT'
-      };
+      const TreeMode = { CHAOS: 'CHAOS', FORMED: 'FORMED', TEXT: 'TEXT', GIFT: 'GIFT' };
+      const COLORS = { skyBlue: '#87CEEB', deepBlue: '#4169E1', sakuraPink: '#FFB7C5', hotPink: '#FF69B4', white: '#FFFFFF', gold: '#FFD700', foliageBlue: '#5F9EA0', foliagePink: '#DB7093' };
 
-      const COLORS = {
-        skyBlue: '#87CEEB',
-        deepBlue: '#4169E1',
-        sakuraPink: '#FFB7C5',
-        hotPink: '#FF69B4',
-        white: '#FFFFFF',
-        gold: '#FFD700',
-        foliageBlue: '#5F9EA0',
-        foliagePink: '#DB7093',
-      };
-
-      // --- MATH UTILS ---
       const getRandomSpherePoint = (radius) => {
-        const u = Math.random();
-        const v = Math.random();
-        const theta = 2 * Math.PI * u;
-        const phi = Math.acos(2 * v - 1);
+        const u = Math.random(), v = Math.random();
+        const theta = 2 * Math.PI * u, phi = Math.acos(2 * v - 1);
         const r = Math.cbrt(Math.random()) * radius;
-        const x = r * Math.sin(phi) * Math.cos(theta);
-        const y = r * Math.sin(phi) * Math.sin(theta) + 5;
-        const z = r * Math.cos(phi);
-        return [x, y, z];
+        return [r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta) + 5, r * Math.cos(phi)];
       };
 
       const getConePoint = (height, baseRadius, i, total, randomness = 0) => {
-        const ratio = i / total;
-        const theta = i * 2.5 + Math.random() * randomness;
-        const y = ratio * height;
-        const currentRadius = baseRadius * (1 - ratio);
-        const x = currentRadius * Math.cos(theta);
-        const z = currentRadius * Math.sin(theta);
-        return [x, y, z];
+        const ratio = i / total, theta = i * 2.5 + Math.random() * randomness, y = ratio * height, currentRadius = baseRadius * (1 - ratio);
+        return [currentRadius * Math.cos(theta), y, currentRadius * Math.sin(theta)];
       };
-
-      let cachedTextPoints = null;
 
       const generateTextPoints = () => {
         if (typeof document === 'undefined') return [];
-        if (cachedTextPoints) return cachedTextPoints;
-
-        const width = 2048;
-        const height = 2048; 
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
+        const width = 2048, height = 2048, canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext('2d');
-        
-        if (!ctx) return [];
-
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, width, height);
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        ctx.font = '900 450px "Cinzel Decorative", serif';
-        ctx.fillText('A6', width / 2, height / 2 - 180);
-        
-        ctx.font = '700 180px "Cinzel Decorative", serif';
-        ctx.fillText('MERRY CHRISTMAS', width / 2, height / 2 + 200);
-        
-        const imageData = ctx.getImageData(0, 0, width, height);
-        const data = imageData.data;
-        const points = [];
-
-        const step = 2;
-        const scale = 0.01;
-
+        ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = '900 450px "Cinzel Decorative", serif'; ctx.fillText('A6', width / 2, height / 2 - 180);
+        ctx.font = '700 180px "Cinzel Decorative", serif'; ctx.fillText('MERRY CHRISTMAS', width / 2, height / 2 + 200);
+        const data = ctx.getImageData(0, 0, width, height).data, points = [];
+        const step = 2, scale = 0.01;
         for (let y = 0; y < height; y += step) {
           for (let x = 0; x < width; x += step) {
             const i = (y * width + x) * 4;
-            if (data[i] > 128) {
-              const posX = (x - width / 2) * scale; 
-              const posY = -(y - height / 2) * scale + 7.0;
-              points.push([posX, posY, 0]);
-            }
+            if (data[i] > 128) points.push([(x - width / 2) * scale, -(y - height / 2) * scale + 7.0, 0]);
           }
         }
-
-        for (let i = points.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [points[i], points[j]] = [points[j], points[i]];
-        }
-
-        cachedTextPoints = points;
         return points;
       };
 
       const getRandomTextPoint = () => {
-        const points = generateTextPoints();
-        if (points.length === 0) return [0, 10, 0];
-        const pt = points[Math.floor(Math.random() * points.length)];
+        const pts = generateTextPoints();
+        const pt = pts[Math.floor(Math.random() * pts.length)];
         return [pt[0], pt[1], pt[2] + (Math.random() - 0.5) * 1.0];
       };
 
-      const generateInstanceData = (count, type) => {
-        const data = [];
-        const treeHeight = 14;
-        const treeBase = 5.5;
-
-        for (let i = 0; i < count; i++) {
-          const chaos = getRandomSpherePoint(15);
-          let tree = getConePoint(treeHeight, treeBase, i, count, 0.5);
-          
-          const tx = (Math.random() - 0.5) * 45; 
-          const ty = (Math.random() - 0.5) * 35 + 7; 
-          const tz = -4 - Math.random() * 12; 
-          
-          const text = [tx, ty, tz];
-
-          if (type === 'heavy') {
-              if (Math.random() < 0.85) {
-                  const maxR = treeBase + 0.5; 
-                  const r = Math.sqrt(Math.random()) * maxR; 
-                  const angle = Math.random() * Math.PI * 2;
-                  const x = Math.cos(angle) * r;
-                  const z = Math.sin(angle) * r;
-                  const heightEnvelope = 3.5 * (1 - (r / maxR)); 
-                  const y = (Math.random() * Math.max(0.5, heightEnvelope)) + 0.1; 
-                  tree = [x, y, z];
-              } else {
-                  const randomI = Math.floor(Math.random() * count * 0.6);
-                  tree = getConePoint(treeHeight, treeBase, randomI, count, 0.5);
-              }
-          }
-          
-          let speed = 2.0;
-          if (type === 'heavy' || type === 'upright') speed = 0.8;
-          if (type === 'light') speed = 3.0;
-          if (type === 'floating') speed = 1.2;
-
-          let rotation = [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI];
-          let spinSpeed = [Math.random() * 0.5, Math.random() * 0.5, 0];
-
-          if (type === 'upright') {
-              rotation = [0, Math.random() * Math.PI * 2, 0];
-              spinSpeed = [0, 0.5 + Math.random() * 0.5, 0];
-              if (tree[1] < 2) {
-                  const r = treeBase + 1 + Math.random() * 2;
-                  const angle = Math.atan2(tree[2], tree[0]);
-                  tree[0] = Math.cos(angle) * r;
-                  tree[2] = Math.sin(angle) * r;
-                  tree[1] = 0.25;
-              }
-          } else if (type === 'heavy') {
-              spinSpeed = [Math.random() * 0.2, Math.random() * 0.2, Math.random() * 0.2];
-              if (tree[1] < 3) {
-                  rotation = [0, Math.random() * Math.PI * 2, 0];
-              }
-          }
-
-          data.push({
-            chaosPos: chaos,
-            treePos: tree,
-            textPos: text,
-            rotation,
-            scale: Math.random() * 0.5 + 0.5,
-            speed,
-            spinSpeed
-          });
-        }
-        return data;
-      };
-
-      // --- COMPONENTS ---
-
-      // --- FOLIAGE ---
       const Foliage = ({ mode }) => {
-        const pointsRef = useRef(null);
-        const materialRef = useRef(null);
-        const textTransitionRef = useRef(0);
-
-        const COUNT = 65000;
-        const TREE_HEIGHT = 15;
-        const TREE_BASE = 5.5;
-
-        const vertexShader = `
-          uniform float uTime;
-          uniform float uScale;
-          uniform float uIsTextMode;
-          attribute vec3 color;
-          varying vec3 vColor;
-          varying vec3 vWorldPos;
-          varying float vRandom;
-          float random(vec2 st) {
-              return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-          }
-          void main() {
-            vWorldPos = position; 
-            vRandom = random(vec2(float(gl_VertexID), 1.0));
-            vColor = color;
-            vec3 pos = position;
-            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-            float sizeModeMult = mix(1.0, 1.1, uIsTextMode);
-            gl_PointSize = uScale * sizeModeMult * (300.0 / -mvPosition.z);
-            gl_Position = projectionMatrix * mvPosition;
-          }
-        `;
-
-        const fragmentShader = `
-          uniform float uTime;
-          uniform float uIsTextMode;
-          varying vec3 vColor;
-          varying vec3 vWorldPos;
-          varying float vRandom;
-          void main() {
-            vec2 coord = gl_PointCoord - vec2(0.5);
-            float dist = length(coord);
-            if (dist > 0.5) discard;
-            float strength = 1.0 - (dist * 2.0);
-            strength = pow(strength, 1.5);
-            vec3 finalColor = vColor;
-            if (uIsTextMode > 0.01) {
-              float gradientT = smoothstep(5.0, 13.0, vWorldPos.y);
-              vec3 colBottom = vec3(0.1, 0.2, 0.9);
-              vec3 colTop = vec3(0.2, 0.9, 1.0);
-              vec3 cyberBody = mix(colBottom, colTop, gradientT);
-              float scanY = fract(uTime * 0.3); 
-              float normY = (vWorldPos.y - 4.0) / 14.0; 
-              float scan = smoothstep(0.15, 0.0, abs(normY - scanY));
-              cyberBody += scan * vec3(0.5, 0.9, 1.0) * 0.5;
-              finalColor = mix(finalColor, cyberBody, uIsTextMode);
-            }
-            if (uIsTextMode > 0.01) {
-              strength = mix(strength, smoothstep(0.5, 0.3, dist), uIsTextMode);
-            }
-            gl_FragColor = vec4(finalColor, strength);
-          }
-        `;
-
-        const { positions, chaosPositions, textPositions, initialColors } = useMemo(() => {
-          const pos = new Float32Array(COUNT * 3);
-          const chaosPos = new Float32Array(COUNT * 3);
-          const textPos = new Float32Array(COUNT * 3);
-          const initCols = new Float32Array(COUNT * 3);
-          const cBlue = new THREE.Color(COLORS.foliageBlue);
-          const cPink = new THREE.Color(COLORS.foliagePink);
-
+        const materialRef = useRef(null), geometryRef = useRef(null), textTransitionRef = useRef(0), COUNT = 65000, TREE_HEIGHT = 15, TREE_BASE = 5.5;
+        const vertexShader = `uniform float uTime, uScale, uIsTextMode; attribute vec3 color; varying vec3 vColor, vWorldPos; void main() { vWorldPos = position; vColor = color; vec3 pos = position; vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0); gl_PointSize = uScale * mix(1.0, 1.1, uIsTextMode) * (300.0 / -mvPosition.z); gl_Position = projectionMatrix * mvPosition; }`;
+        const fragmentShader = `uniform float uTime, uIsTextMode; varying vec3 vColor, vWorldPos; void main() { float dist = length(gl_PointCoord - 0.5); if (dist > 0.5) discard; float strength = pow(1.0 - (dist * 2.0), 1.5); vec3 finalColor = vColor; if (uIsTextMode > 0.01) { float g = smoothstep(5.0, 13.0, vWorldPos.y); vec3 cb = mix(vec3(0.1, 0.2, 0.9), vec3(0.2, 0.9, 1.0), g); cb += smoothstep(0.15, 0.0, abs((vWorldPos.y - 4.0) / 14.0 - fract(uTime * 0.3))) * vec3(0.5, 0.9, 1.0) * 0.5; finalColor = mix(finalColor, cb, uIsTextMode); strength = mix(strength, smoothstep(0.5, 0.3, dist), uIsTextMode); } gl_FragColor = vec4(finalColor, strength); }`;
+        const { posArr, chaosArr, textArr, colArr } = useMemo(() => {
+          const p = new Float32Array(COUNT * 3), c = new Float32Array(COUNT * 3), t = new Float32Array(COUNT * 3), cl = new Float32Array(COUNT * 3);
           for (let i = 0; i < COUNT; i++) {
-            const [tx, ty, tz] = getConePoint(TREE_HEIGHT, TREE_BASE, i, COUNT, 1.0);
-            pos[i * 3] = tx; pos[i * 3 + 1] = ty; pos[i * 3 + 2] = tz;
-            const [cx, cy, cz] = getRandomSpherePoint(20);
-            chaosPos[i * 3] = cx; chaosPos[i * 3 + 1] = cy; chaosPos[i * 3 + 2] = cz;
-            const [texX, texY, texZ] = getRandomTextPoint();
-            textPos[i * 3] = texX; textPos[i * 3 + 1] = texY; textPos[i * 3 + 2] = texZ;
-            const mix1 = cBlue.clone().lerp(cPink, Math.random());
-            initCols[i * 3] = mix1.r; initCols[i * 3 + 1] = mix1.g; initCols[i * 3 + 2] = mix1.b;
+            const tp = getConePoint(TREE_HEIGHT, TREE_BASE, i, COUNT, 1.0); p.set(tp, i * 3);
+            const cp = getRandomSpherePoint(20); c.set(cp, i * 3);
+            const tx = getRandomTextPoint(); t.set(tx, i * 3);
+            const mixC = new THREE.Color(COLORS.foliageBlue).lerp(new THREE.Color(COLORS.foliagePink), Math.random()); cl.set([mixC.r, mixC.g, mixC.b], i * 3);
           }
-          return { positions: pos, chaosPositions: chaosPos, textPositions: textPos, initialColors: initCols };
+          return { posArr: p, chaosArr: c, textArr: t, colArr: cl };
         }, []);
-
-        const geometryRef = useRef(null);
-
         useFrame((state, delta) => {
-          if (!geometryRef.current || !materialRef.current) return;
-          const currentPositions = geometryRef.current.attributes.position.array;
-          const time = state.clock.elapsedTime;
-          materialRef.current.uniforms.uTime.value = time;
-          const targetText = mode === TreeMode.TEXT ? 1.0 : 0.0;
-          textTransitionRef.current = THREE.MathUtils.lerp(textTransitionRef.current, targetText, delta * 2.0);
+          if (!geometryRef.current) return;
+          const curr = geometryRef.current.attributes.position.array;
+          textTransitionRef.current = THREE.MathUtils.lerp(textTransitionRef.current, mode === TreeMode.TEXT ? 1 : 0, delta * 2);
           materialRef.current.uniforms.uIsTextMode.value = textTransitionRef.current;
-          const lerpFactor = THREE.MathUtils.clamp(delta * 1.5, 0, 1);
-
-          for (let i = 0; i < COUNT; i++) {
-            const idx = i * 3;
-            let targetX, targetY, targetZ;
-            if (mode === TreeMode.FORMED) { targetX = positions[idx]; targetY = positions[idx+1]; targetZ = positions[idx+2]; }
-            else if (mode === TreeMode.TEXT) { targetX = textPositions[idx]; targetY = textPositions[idx+1]; targetZ = textPositions[idx+2]; }
-            else { targetX = chaosPositions[idx]; targetY = chaosPositions[idx+1]; targetZ = chaosPositions[idx+2]; }
-            
-            currentPositions[idx] = THREE.MathUtils.lerp(currentPositions[idx], targetX, lerpFactor);
-            currentPositions[idx + 1] = THREE.MathUtils.lerp(currentPositions[idx + 1], targetY, lerpFactor);
-            currentPositions[idx + 2] = THREE.MathUtils.lerp(currentPositions[idx + 2], targetZ, lerpFactor);
+          materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+          for (let i = 0; i < COUNT * 3; i+=3) {
+            let tar = mode === TreeMode.FORMED ? [posArr[i], posArr[i+1], posArr[i+2]] : mode === TreeMode.TEXT ? [textArr[i], textArr[i+1], textArr[i+2]] : [chaosArr[i], chaosArr[i+1], chaosArr[i+2]];
+            curr[i] = THREE.MathUtils.lerp(curr[i], tar[0], delta * 1.5); curr[i+1] = THREE.MathUtils.lerp(curr[i+1], tar[1], delta * 1.5); curr[i+2] = THREE.MathUtils.lerp(curr[i+2], tar[2], delta * 1.5);
           }
           geometryRef.current.attributes.position.needsUpdate = true;
-          if(pointsRef.current) {
-              if (mode === TreeMode.FORMED) pointsRef.current.rotation.y += delta * 0.05;
-              else if (mode === TreeMode.TEXT) pointsRef.current.rotation.y = THREE.MathUtils.lerp(pointsRef.current.rotation.y, 0, delta);
-              else pointsRef.current.rotation.y = THREE.MathUtils.lerp(pointsRef.current.rotation.y, 0, delta * 2);
-          }
         });
-
-        return (
-          <points ref={pointsRef}>
-            <bufferGeometry ref={geometryRef}>
-              <bufferAttribute attach="attributes-position" count={COUNT} array={chaosPositions.slice()} itemSize={3} />
-              <bufferAttribute attach="attributes-color" count={COUNT} array={initialColors} itemSize={3} />
-            </bufferGeometry>
-            <shaderMaterial
-              ref={materialRef}
-              vertexShader={vertexShader}
-              fragmentShader={fragmentShader}
-              uniforms={{ uTime: { value: 0 }, uScale: { value: 0.15 }, uIsTextMode: { value: 0 } }}
-              transparent depthWrite={false} blending={THREE.AdditiveBlending}
-            />
-          </points>
-        );
+        return <points><bufferGeometry ref={geometryRef}><bufferAttribute attach="attributes-position" count={COUNT} array={chaosArr.slice()} itemSize={3} /><bufferAttribute attach="attributes-color" count={COUNT} array={colArr} itemSize={3} /></bufferGeometry><shaderMaterial ref={materialRef} vertexShader={vertexShader} fragmentShader={fragmentShader} uniforms={{ uTime: { value: 0 }, uScale: { value: 0.15 }, uIsTextMode: { value: 0 } }} transparent depthWrite={false} blending={THREE.AdditiveBlending} /></points>;
       };
 
-      // --- SNOW SYSTEM ---
-      const SnowDrifts = ({ mode }) => {
-        const groupRef = useRef(null);
-        const geometry = useMemo(() => {
-          const geo = new THREE.SphereGeometry(1, 128, 64, 0, Math.PI * 2, 0, Math.PI * 0.5);
-          const pos = geo.attributes.position;
-          const v = new THREE.Vector3();
-          for (let i = 0; i < pos.count; i++) {
-              v.fromBufferAttribute(pos, i);
-              const bump = Math.sin(v.x * 5.0) * 0.08 + Math.cos(v.z * 4.5) * 0.08 + Math.sin(v.x * 10 + v.z * 8) * 0.03;
-              v.y += bump;
-              pos.setXYZ(i, v.x, v.y, v.z);
-          }
-          geo.computeVertexNormals();
-          return geo;
-        }, []);
-        
-        useFrame((state, delta) => {
-          if (!groupRef.current) return;
-          const targetScale = mode === TreeMode.FORMED ? 1 : 0;
-          const lerpSpeed = mode === TreeMode.FORMED ? 1.5 : 3.0;
-          const nextScale = THREE.MathUtils.lerp(groupRef.current.scale.x, targetScale, delta * lerpSpeed);
-          groupRef.current.scale.setScalar(nextScale);
-          groupRef.current.visible = nextScale > 0.01;
-        });
-
-        return (
-          <group ref={groupRef}>
-              <mesh position={[0, -0.6, 0]} scale={[6.0, 0.75, 6.0]} geometry={geometry}>
-                  <meshStandardMaterial color="#ffffff" roughness={0.9} metalness={0.0} />
-              </mesh>
-          </group>
-        );
-      };
-
-      const FallingSnow = ({ mode }) => {
-        const count = 400; 
-        const mesh = useRef(null);
-        
-        const snowMaterial = useMemo(() => new THREE.ShaderMaterial({
-          uniforms: {
-            uTime: { value: 0 },
-            uColor: { value: new THREE.Color('#ffffff') },
-            uSize: { value: 120.0 }, // Increased size significantly
-          },
-          vertexShader: `
-            uniform float uTime;
-            uniform float uSize;
-            attribute float aScale;
-            attribute vec3 aVelocity;
-            varying float vAlpha;
-            
-            void main() {
-              vec3 pos = position;
-              float fallSpeed = aVelocity.y; 
-              float fallOffset = uTime * fallSpeed;
-              float heightRange = 25.0;
-              float currentY = pos.y - fallOffset;
-              float wrappedY = mod(currentY, heightRange);
-              pos.y = wrappedY - 5.0; 
-              pos.x += sin(uTime * aVelocity.x + pos.y) * 0.5;
-              pos.z += cos(uTime * aVelocity.z + pos.y) * 0.5;
-              vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-              gl_PointSize = uSize * aScale * (10.0 / -mvPosition.z);
-              gl_Position = projectionMatrix * mvPosition;
-              float heightNorm = smoothstep(-5.0, -2.0, pos.y);
-              vAlpha = heightNorm;
-            }
-          `,
-          fragmentShader: `
-            uniform vec3 uColor;
-            varying float vAlpha;
-            void main() {
-              vec2 coord = gl_PointCoord - vec2(0.5);
-              float dist = length(coord);
-              if(dist > 0.5) discard;
-              float strength = smoothstep(0.5, 0.0, dist);
-              gl_FragColor = vec4(uColor, strength * vAlpha * 0.9);
-            }
-          `,
-          transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-        }), []);
-
-        const { positions, scales, velocities } = useMemo(() => {
-          const pos = new Float32Array(count * 3);
-          const sc = new Float32Array(count);
-          const vel = new Float32Array(count * 3);
-          for (let i = 0; i < count; i++) {
-            pos[i * 3] = (Math.random() - 0.5) * 50; 
-            pos[i * 3 + 1] = Math.random() * 25 - 5; 
-            pos[i * 3 + 2] = (Math.random() - 0.5) * 50; 
-            sc[i] = Math.random() * 0.5 + 0.5; 
-            vel[i * 3] = Math.random() * 0.5 + 0.2; 
-            vel[i * 3 + 1] = Math.random() * 1.5 + 1.0; 
-            vel[i * 3 + 2] = Math.random() * 0.5 + 0.2; 
-          }
-          return { positions: pos, scales: sc, velocities: vel };
-        }, []);
-
-        useFrame((state) => {
-          if (mesh.current) {
-              mesh.current.material.uniforms.uTime.value = state.clock.elapsedTime;
-          }
-        });
-
-        return (
-          <points ref={mesh}>
-            <bufferGeometry>
-              <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
-              <bufferAttribute attach="attributes-aScale" count={count} array={scales} itemSize={1} />
-              <bufferAttribute attach="attributes-aVelocity" count={count} array={velocities} itemSize={3} />
-            </bufferGeometry>
-            <primitive object={snowMaterial} attach="material" />
-          </points>
-        );
-      };
-
-      const SnowSystem = ({ mode }) => {
-        return (
-          <>
-            <SnowDrifts mode={mode} />
-            <FallingSnow mode={mode} />
-          </>
-        );
-      };
-
-      // --- ORNAMENTS UTILS ---
-      // (Included previously: mergeBufferGeometries, useSyncedAnimation, GiftSystem, CarSystem, GenericOrnaments, OrnamentsSystem)
-      // I will re-include minimal versions or full versions if space permits, but for standalone I must include full logic.
-      
-      // ... [Truncated for brevity in thought process, but will be full in output] ...
-      // Re-implementing necessary parts for the Standalone HTML to be functional.
-
-      // --- RE-INSERTING PREVIOUSLY DEFINED COMPONENTS FOR STANDALONE COMPLETENESS ---
-      
-      // ... GiftSystem, CarSystem, GenericOrnaments, OrnamentsSystem ...
-      // ... TopStar ...
-      // ... TextRibbon ...
-      // ... PolaroidSystem ...
-      // ... Cursor ...
-      
-      // To ensure the XML output is valid and runnable, I will paste the consolidated blocks.
-
-      const TopStar = ({ mode }) => {
-        const ref = useRef(null);
-        const targetY = 15.0;
-        const chaosY = 25;
-        const textY = 25;
-
-        const starGeometry = useMemo(() => {
-          const shape = new THREE.Shape();
-          const points = 5;
-          for (let i = 0; i < points * 2; i++) {
-            const r = i % 2 === 0 ? 1.5 : 0.7;
-            const angle = (i / (points * 2)) * Math.PI * 2;
-            const x = Math.cos(angle + Math.PI / 2) * r;
-            const y = Math.sin(angle + Math.PI / 2) * r;
-            if (i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
-          }
-          shape.closePath();
-          const geom = new THREE.ExtrudeGeometry(shape, { depth: 0.4, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 2 });
-          geom.center();
-          return geom;
-        }, []);
-
+      const Polaroid = ({ mode, url, chaosPos, treePos, treeRot }) => {
+        const ref = useRef(null), floatS = useRef(Math.random() * 0.5 + 0.2), floatO = useRef(Math.random() * Math.PI * 2);
         useFrame((state, delta) => {
           if (!ref.current) return;
-          let target = chaosY;
-          if (mode === TreeMode.FORMED) target = targetY;
-          if (mode === TreeMode.TEXT) target = textY;
-          ref.current.position.y = THREE.MathUtils.lerp(ref.current.position.y, target, delta * 2);
-          ref.current.rotation.y += delta * 1.5;
-          ref.current.rotation.z = Math.sin(state.clock.elapsedTime * 2) * 0.1;
-          const pulse = 1 + Math.sin(state.clock.elapsedTime * 3) * 0.1;
-          ref.current.scale.setScalar(mode === TreeMode.TEXT ? 0 : pulse);
+          const t = state.clock.elapsedTime, tarP = new THREE.Vector3(...(mode === TreeMode.FORMED ? treePos : chaosPos));
+          tarP.y += Math.sin(t * floatS.current + floatO.current) * 0.1;
+          ref.current.position.lerp(tarP, delta * 2);
+          let tarQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(...(mode === TreeMode.FORMED ? treeRot : [0,0,0])));
+          if (mode === TreeMode.CHAOS) {
+            const lookM = new THREE.Matrix4(); lookM.lookAt(ref.current.position, new THREE.Vector3(0, 5, 0), new THREE.Vector3(0, 1, 0));
+            tarQ.setFromRotationMatrix(lookM);
+            tarQ.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.sin(t * 0.3) * 0.1, Math.cos(t * 0.4) * 0.1, 0)));
+          }
+          ref.current.quaternion.slerp(tarQ, delta * 2);
+          const vis = (mode === TreeMode.CHAOS || mode === TreeMode.FORMED) ? 1 : 0;
+          ref.current.scale.lerp(new THREE.Vector3(vis, vis, vis), 0.1);
         });
-
-        return (
-          <group ref={ref} position={[0, chaosY, 0]}>
-            <mesh geometry={starGeometry}>
-              <meshStandardMaterial color={COLORS.gold} roughness={0.2} metalness={0.8} emissive={COLORS.gold} emissiveIntensity={0.2} />
-            </mesh>
-          </group>
-        );
+        return <group ref={ref} position={chaosPos}><mesh position={[0,0,-0.01]}><boxGeometry args={[1.2, 1.5, 0.05]} /><meshStandardMaterial color="white" /></mesh><Image url={url} position={[0, 0.08, 0.02]} scale={[1,1]} transparent /></group>;
       };
 
-      const TextRibbon = ({ mode }) => {
-        const groupRef = useRef(null);
-        const GLSL_COMMON = `
-          #define PI 3.14159265
-          vec3 getPath(float angle, float rx, float rz, float heightProgress, float tiltDir) {
-              float yBase = mix(16.0, 2.0, heightProgress);
-              float x = rx * cos(angle);
-              float z = rz * sin(angle * 2.0);
-              float yOffset = sin(angle * 1.5 + heightProgress * 3.0) * 1.5 * tiltDir;
-              float yTilt = x * -0.2; 
-              return vec3(x, yBase + yOffset + yTilt, z);
-          }
-        `;
-        const RIBBON_VERTEX = `
-          attribute float aTiltDir;
-          attribute float aPhaseOffset;
-          uniform float uTime;
-          varying vec2 vUv;
-          varying float vAlpha;
-          varying float vDepth;
-          ${GLSL_COMMON}
-          void main() {
-            vUv = uv;
-            float t = position.x + 0.5; 
-            float w = position.y;
-            float speed = uTime * 0.8;
-            float spiralDensity = 1.5; 
-            float angle = (t * PI * 2.0 * spiralDensity) - speed + aPhaseOffset;
-            float rx = 9.5; float rz = 3.0; 
-            vec3 center = getPath(angle, rx, rz, t, aTiltDir);
-            float delta = 0.01;
-            float nextAngle = ((t + delta) * PI * 2.0 * spiralDensity) - speed + aPhaseOffset;
-            vec3 next = getPath(nextAngle, rx, rz, t + delta, aTiltDir);
-            vec3 forward = normalize(next - center);
-            vec3 up = vec3(0.0, 1.0, 0.0);
-            vec3 binormal = normalize(cross(forward, up));
-            float widthPulse = 1.0 + 0.2 * sin(t * 10.0 - uTime * 3.0);
-            vec3 pos = center + binormal * w * 0.7 * widthPulse; 
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-            vAlpha = smoothstep(0.0, 0.1, t) * (1.0 - smoothstep(0.9, 1.0, t));
-            vDepth = center.z;
-          }
-        `;
-        const RIBBON_FRAGMENT = `
-          uniform float uTime;
-          uniform float uOpacity;
-          varying vec2 vUv;
-          varying float vAlpha;
-          varying float vDepth;
-          void main() {
-            float d = abs(vUv.y - 0.5) * 2.0;
-            float edgeGlow = smoothstep(0.6, 1.0, d);
-            vec3 cDeep = vec3(0.0, 0.1, 0.8);
-            vec3 cCyan = vec3(0.0, 0.8, 1.0);
-            vec3 col = mix(cDeep, cCyan, d * 0.8 + 0.2);
-            float energyFlow = sin(vUv.x * 15.0 - uTime * 2.5);
-            float streak = smoothstep(0.9, 1.0, energyFlow);
-            col += vec3(1.0) * streak * edgeGlow * 1.5;
-            col += cCyan * edgeGlow * 0.5;
-            float depthFactor = smoothstep(-5.0, 5.0, vDepth) * 0.5 + 0.5; 
-            gl_FragColor = vec4(col, vAlpha * uOpacity * depthFactor);
-          }
-        `;
-        const ribbonGeo = useMemo(() => {
-          const geo = new THREE.PlaneGeometry(1, 1, 600, 1);
-          const tiltDirs = new Float32Array([-1.0, 1.0]);
-          const phaseOffsets = new Float32Array([0.0, Math.PI]);
-          geo.setAttribute('aTiltDir', new THREE.InstancedBufferAttribute(tiltDirs, 1));
-          geo.setAttribute('aPhaseOffset', new THREE.InstancedBufferAttribute(phaseOffsets, 1));
-          return geo;
-        }, []);
-        const ribbonMat = useMemo(() => new THREE.ShaderMaterial({
-          vertexShader: RIBBON_VERTEX, fragmentShader: RIBBON_FRAGMENT,
-          uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
-          transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending
-        }), []);
-
-        useFrame((state, delta) => {
-          if (!groupRef.current) return;
-          const targetOpacity = mode === TreeMode.TEXT ? 1.0 : 0.0;
-          const nextOpacity = THREE.MathUtils.lerp(ribbonMat.uniforms.uOpacity.value, targetOpacity, delta * 2.0);
-          ribbonMat.uniforms.uOpacity.value = nextOpacity;
-          groupRef.current.visible = nextOpacity > 0.01;
-          ribbonMat.uniforms.uTime.value = state.clock.elapsedTime;
-        });
-
-        return (
-          <group ref={groupRef}>
-              <instancedMesh args={[ribbonGeo, ribbonMat, 2]} frustumCulled={false} />
-          </group>
-        );
+      const PolaroidSystem = ({ mode }) => {
+        const photos = useMemo(() => Array(12).fill("https://i.imgur.com/SlozniS.jpg").map(() => ({
+          chaosPos: getRandomSpherePoint(20), treePos: [Math.random()*4-2, Math.random()*10+2, Math.random()*4-2], treeRot: [Math.random(), Math.random(), Math.random()]
+        })), []);
+        return <group>{photos.map((p, i) => <Polaroid key={i} mode={mode} url={p.url} chaosPos={p.chaosPos} treePos={p.treePos} treeRot={p.treeRot} />)}</group>;
       };
 
-      const Cursor = () => {
-        const mainCursor = useRef(null);
-        const trailRefs = useRef([]);
-        const mouse = useRef({ x: -100, y: -100 });
-        const cursorSmooth = useRef({ x: -100, y: -100 });
-        const [isClicking, setIsClicking] = useState(false);
-
-        useEffect(() => {
-          const onMouseMove = (e) => { mouse.current = { x: e.clientX, y: e.clientY }; };
-          const onMouseDown = () => setIsClicking(true);
-          const onMouseUp = () => setIsClicking(false);
-          window.addEventListener('mousemove', onMouseMove);
-          window.addEventListener('mousedown', onMouseDown);
-          window.addEventListener('mouseup', onMouseUp);
-          cursorSmooth.current = { ...mouse.current };
-          return () => {
-            window.removeEventListener('mousemove', onMouseMove);
-            window.removeEventListener('mousedown', onMouseDown);
-            window.removeEventListener('mouseup', onMouseUp);
-          };
-        }, []);
-
-        useEffect(() => {
-          let animationFrameId;
-          const trailHistory = Array(12).fill({ x: -100, y: -100 });
-          const loop = () => {
-            const distX = mouse.current.x - cursorSmooth.current.x;
-            const distY = mouse.current.y - cursorSmooth.current.y;
-            cursorSmooth.current.x += distX * 0.15;
-            cursorSmooth.current.y += distY * 0.15;
-            if (mainCursor.current) {
-              mainCursor.current.style.transform = `translate3d(${cursorSmooth.current.x}px, ${cursorSmooth.current.y}px, 0) translate(-50%, -50%) scale(${isClicking ? 1.3 : 1})`;
-              if (isClicking) {
-                  mainCursor.current.style.boxShadow = `0 0 20px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255, 255, 255, 0.4)`;
-              } else {
-                  mainCursor.current.style.boxShadow = `0 4px 10px rgba(0, 0, 0, 0.1), inset 0 0 8px rgba(255, 255, 255, 0.3)`;
-              }
-            }
-            trailHistory.pop();
-            trailHistory.unshift({ ...cursorSmooth.current });
-            trailRefs.current.forEach((el, index) => {
-              if (!el) return;
-              const pos = trailHistory[index];
-              const scale = 1 - (index / trailHistory.length);
-              el.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0) translate(-50%, -50%) scale(${scale})`;
-              el.style.opacity = (0.6 * scale).toString();
-            });
-            animationFrameId = requestAnimationFrame(loop);
-          };
-          loop();
-          return () => cancelAnimationFrame(animationFrameId);
-        }, [isClicking]);
-
-        return (
-          <>
-            <div ref={mainCursor} className="fixed top-0 left-0 rounded-full pointer-events-none z-[9999] backdrop-blur-sm"
-              style={{ width: '48px', height: '48px', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.4)' }} />
-            {[...Array(12)].map((_, i) => (
-              <div key={i} ref={(el) => { trailRefs.current[i] = el; }} className="fixed top-0 left-0 rounded-full pointer-events-none z-[9998]"
-                style={{ width: '12px', height: '12px', backgroundColor: '#87CEEB', boxShadow: '0 0 8px #87CEEB' }} />
-            ))}
-          </>
-        );
-      };
-
-      const SnowOverlay = () => {
-        const canvasRef = useRef(null);
-        useEffect(() => {
-          const canvas = canvasRef.current;
-          if (!canvas) return;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) return;
-          let width = window.innerWidth;
-          let height = window.innerHeight;
-          canvas.width = width; canvas.height = height;
-          const snowflakes = [];
-          const count = width < 600 ? 50 : 100;
-          for (let i = 0; i < count; i++) {
-            // INCREASED 2D SNOW SIZE: Radius 4 to 9
-            snowflakes.push({ x: Math.random() * width, y: Math.random() * height, r: Math.random() * 5 + 4, s: Math.random() * 1 + 0.5, o: Math.random() * 0.5 + 0.3 });
-          }
-          let animationFrameId;
-          const render = () => {
-            ctx.clearRect(0, 0, width, height);
-            for (let i = 0; i < count; i++) {
-              const f = snowflakes[i];
-              ctx.beginPath();
-              ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-              ctx.fillStyle = `rgba(255, 255, 255, ${f.o})`;
-              ctx.fill();
-              f.y += f.s;
-              f.x += Math.sin(f.y * 0.01) * 0.5;
-              if (f.y > height) { f.y = -10; f.x = Math.random() * width; }
-              if (f.x > width) f.x = 0; else if (f.x < 0) f.x = width;
-            }
-            animationFrameId = requestAnimationFrame(render);
-          };
-          render();
-          const handleResize = () => { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; };
-          window.addEventListener('resize', handleResize);
-          return () => { cancelAnimationFrame(animationFrameId); window.removeEventListener('resize', handleResize); };
-        }, []);
-        return <canvas ref={canvasRef} className="absolute inset-0 z-20 pointer-events-none" />;
-      };
-
-      const Overlay = ({ mode, setMode }) => {
-        const [isPlaying, setIsPlaying] = useState(false);
-        const audioRef = useRef(null);
-        const [isOpening, setIsOpening] = useState(false);
-        const [isFading, setIsFading] = useState(false);
-        const musicUrl = "https://music.163.com/song/media/outer/url?id=65766.mp3";
-
-        const toggleMusic = () => {
-          if (audioRef.current) {
-            if (isPlaying) audioRef.current.pause();
-            else audioRef.current.play().catch(e => console.error(e));
-            setIsPlaying(!isPlaying);
-          }
-        };
-
-        const handleModeToggle = () => {
-            if (mode === TreeMode.GIFT) { triggerOpen(); return; }
-            if (mode === TreeMode.CHAOS) setMode(TreeMode.FORMED);
-            else if (mode === TreeMode.FORMED) setMode(TreeMode.TEXT);
-            else setMode(TreeMode.CHAOS);
-        };
-        
-        useEffect(() => { window.addEventListener('dblclick', handleModeToggle); return () => window.removeEventListener('dblclick', handleModeToggle); }, [mode]);
-
-        const triggerOpen = () => {
-            if (isOpening) return;
-            setIsOpening(true);
-            if (audioRef.current && !isPlaying) audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
-            setTimeout(() => setIsFading(true), 800);
-            setTimeout(() => { setMode(TreeMode.CHAOS); setTimeout(() => { setIsOpening(false); setIsFading(false); }, 100); }, 1500);
-        };
-
-        const shouldHideTitle = mode === TreeMode.CHAOS || mode === TreeMode.TEXT || mode === TreeMode.GIFT;
-        const ribbonVerticalBg = `linear-gradient(90deg, #ffffff 0px, #ffffff 1.5px, #38bdf8 1.5px, #38bdf8 calc(100% - 1.5px), #ffffff calc(100% - 1.5px), #ffffff 100%)`;
-        const ribbonHorizontalBg = `linear-gradient(0deg, #ffffff 0px, #ffffff 1.5px, #38bdf8 1.5px, #38bdf8 calc(100% - 1.5px), #ffffff calc(100% - 1.5px), #ffffff 100%)`;
-
-        return (
-          <div className={`absolute top-0 left-0 w-full h-full flex flex-col items-center justify-between z-10 transition-colors duration-1000 ${mode === TreeMode.GIFT ? 'pointer-events-auto' : 'pointer-events-none'}`}>
-            <style>{`
-              @keyframes sway-loop-left { 0%, 100% { transform: translate(-50%, 0%) rotate(-60deg) scale(1); } 50% { transform: translate(-50%, 0%) rotate(-65deg) scale(1.05); } }
-              @keyframes sway-loop-right { 0%, 100% { transform: translate(-50%, 0%) rotate(60deg) scale(1); } 50% { transform: translate(-50%, 0%) rotate(65deg) scale(1.05); } }
-              @keyframes sway-tail-left { 0%, 100% { transform: translate(-50%, 0%) rotate(-150deg); } 50% { transform: translate(-50%, 0%) rotate(-145deg); } }
-              @keyframes sway-tail-right { 0%, 100% { transform: translate(-50%, 0%) rotate(150deg); } 50% { transform: translate(-50%, 0%) rotate(145deg); } }
-            `}</style>
-            <audio ref={audioRef} src={musicUrl} loop />
-            {mode === TreeMode.GIFT && (
-              <div className={`absolute inset-0 z-50 overflow-hidden cursor-pointer transition-all duration-1000 ease-in-out ${isFading ? 'opacity-0 scale-110 blur-2xl' : 'opacity-100 scale-100'}`} onClick={triggerOpen}>
-                  <div className="absolute inset-0" style={{ backgroundColor: COLORS.sakuraPink }}></div>
-                  <SnowOverlay />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
-                       <h1 className="text-[15vw] sm:text-[18vw] leading-[0.85] font-black text-white tracking-tighter opacity-100 select-none" style={{ fontFamily: '"Cinzel Decorative", serif' }}>Merry</h1>
-                      <h1 className="text-[15vw] sm:text-[18vw] leading-[0.85] font-black text-white tracking-tighter opacity-100 select-none -mt-[2vw]" style={{ fontFamily: '"Cinzel Decorative", serif' }}>Christmas</h1>
-                  </div>
-                  <div className="absolute top-0 bottom-0 left-1/2 w-5 sm:w-8 -translate-x-1/2 z-10" style={{ background: ribbonVerticalBg, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}></div>
-                  <div className="absolute left-0 right-0 top-1/2 h-5 sm:h-8 -translate-y-1/2 z-10" style={{ background: ribbonHorizontalBg, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}></div>
-                  <div className="absolute top-1/2 left-1/2 z-20 pointer-events-none" style={{ transform: 'translate(-50%, -50%) rotate(230deg)' }}>
-                      <div className="absolute top-0 left-0 w-5 sm:w-8 h-48 sm:h-64 origin-top rounded-b-sm z-15" style={{ background: ribbonVerticalBg, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', animation: 'sway-tail-left 3s ease-in-out infinite' }}></div>
-                      <div className="absolute top-0 left-0 w-5 sm:w-8 h-48 sm:h-64 origin-top rounded-b-sm z-15" style={{ background: ribbonVerticalBg, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', animation: 'sway-tail-right 3.5s ease-in-out infinite' }}></div>
-                      <div className="absolute bottom-0 left-0 w-5 sm:w-8 h-32 sm:h-44 origin-bottom rounded-t-full z-15" style={{ background: ribbonVerticalBg, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', animation: 'sway-loop-left 4s ease-in-out infinite' }}></div>
-                      <div className="absolute bottom-0 left-0 w-5 sm:w-8 h-32 sm:h-44 origin-bottom rounded-t-full z-15" style={{ background: ribbonVerticalBg, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', animation: 'sway-loop-right 4.5s ease-in-out infinite' }}></div>
-                      <div className="absolute w-6 h-6 sm:w-9 sm:h-9 rounded-full shadow-2xl z-30" style={{ background: ribbonHorizontalBg, transform: 'translate(-50%, -50%)' }}><div className="absolute inset-0 bg-white opacity-20 rounded-full"></div></div>
-                  </div>
-                  <div className="absolute top-1/2 left-1/2 origin-top-left" style={{ transform: 'rotate(15deg)', zIndex: 12 }}>
-                      <div className="bg-[#bae6fd] border-[6px] border-white p-5 sm:p-7 rounded-xl shadow-2xl w-[250px] sm:w-[350px] relative transition-transform duration-500 hover:rotate-6 hover:scale-110 origin-top-left">
-                          <div className="absolute -top-2 -left-2 w-4 h-4 bg-[#0ea5e9] rounded-full z-10 opacity-80"></div>
-                          <div className="absolute -top-6 -left-6 w-8 h-8 border-b-2 border-l-2 border-[#e0f2fe] rounded-bl-full rotate-45 opacity-80"></div>
-                          <div className="flex flex-col gap-2 pt-2 pl-2 items-end text-right pr-2">
-                              <h3 className="font-bold text-3xl sm:text-5xl tracking-wide leading-none" style={{ fontFamily: '"NSimSun", "Noto Serif SC", serif', color: COLORS.sakuraPink }}>打开盒子</h3>
-                              <div className="w-full h-[1px] opacity-50 my-1" style={{ backgroundColor: COLORS.sakuraPink }}></div>
-                              <p className="text-xs sm:text-base font-bold leading-relaxed tracking-wider opacity-90" style={{ fontFamily: '"NSimSun", "Noto Serif SC", serif', color: COLORS.sakuraPink }}>A6的圣诞盒子</p>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-            )}
-            <div className={`fixed top-8 right-8 pointer-events-auto transition-opacity duration-500 z-[60] ${mode === TreeMode.GIFT && !isOpening ? 'opacity-0' : 'opacity-100'}`}>
-              <button onClick={toggleMusic} className="bg-white/20 backdrop-blur-md border border-white/30 text-sky-600 hover:text-pink-500 font-bold py-2 px-4 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2">
-                {isPlaying ? <><span className="animate-pulse">🎵</span> Playing</> : <><span className="grayscale">🎵</span> Play Music</>}
-              </button>
-            </div>
-            <div className="text-center pt-8 min-h-[160px] pointer-events-none z-40">
-              {!shouldHideTitle && <div className="transition-opacity duration-1000"><h1 className="text-6xl sm:text-7xl font-bold text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.8)] tracking-widest uppercase" style={{ fontFamily: '"Cinzel Decorative", serif' }}>A6’s Christmas Tree</h1></div>}
-            </div>
-            <div className={`absolute bottom-4 right-4 text-white/60 text-xs font-sans text-right transition-opacity duration-500 ${mode === TreeMode.GIFT ? 'opacity-0' : 'opacity-100'}`}>Double-click to switch scenes ✨</div>
-          </div>
-        );
-      };
-
-      // --- EXPERIENCE ---
       const Experience = ({ mode }) => {
-        return (
-          <>
-            <color attach="background" args={[COLORS.sakuraPink]} />
-            <fog attach="fog" args={[COLORS.sakuraPink, 15, 50]} />
-            <OrbitControls enablePan={false} minPolarAngle={Math.PI / 3} maxPolarAngle={Math.PI / 1.8} minDistance={10} maxDistance={40} target={[0, 2, 0]} />
-            <ambientLight intensity={0.5} color={COLORS.skyBlue} />
-            <pointLight position={[10, 10, 10]} intensity={1} color={COLORS.white} />
-            <spotLight position={[0, 20, 0]} intensity={2} angle={0.5} penumbra={1} color={COLORS.hotPink} />
-            <Environment preset="lobby" blur={0.8} />
-            <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-            <group position={[0, -5, 0]}>
-              <Suspense fallback={null}>
-                  <Foliage mode={mode} />
-                  <OrnamentsSystem mode={mode} />
-                  <TopStar mode={mode} />
-                  <SnowSystem mode={mode} />
-                  <TextRibbon mode={mode} />
-                  <PolaroidSystem mode={mode} />
-              </Suspense>
-            </group>
-            <EffectComposer disableNormalPass>
-              <Bloom luminanceThreshold={0.8} mipmapBlur intensity={1.2} radius={0.4} color={COLORS.hotPink} />
-              <Vignette eskil={false} offset={0.1} darkness={0.5} />
-            </EffectComposer>
-          </>
-        );
+        const ctrl = useRef(null);
+        useFrame((s, d) => {
+          if (mode === TreeMode.CHAOS) {
+            s.camera.position.lerp(new THREE.Vector3(0, 8, 28), d * 1.5);
+            if (ctrl.current) { ctrl.current.target.lerp(new THREE.Vector3(0, 2, 0), d * 1.5); ctrl.current.update(); }
+          }
+        });
+        return <><color attach="background" args={[COLORS.sakuraPink]} /><OrbitControls ref={ctrl} enablePan={false} target={[0, 2, 0]} /><ambientLight intensity={0.5} /><Environment preset="lobby" /><group position={[0, -5, 0]}><Foliage mode={mode} /><PolaroidSystem mode={mode} /></group></>;
       };
 
-      // --- APP ---
       const App = () => {
         const [mode, setMode] = useState(TreeMode.GIFT);
-        return (
-          <div className="w-full h-screen bg-pink-100 relative overflow-hidden">
-            <Cursor />
-            <Overlay mode={mode} setMode={setMode} />
-            <Canvas shadows camera={{ position: [0, 8, 28], fov: 45 }} dpr={[1, 2]} gl={{ antialias: false, alpha: true, stencil: false, depth: true }}>
-              <Experience mode={mode} />
-            </Canvas>
-          </div>
-        );
+        return <div className="w-full h-screen bg-pink-100 relative" onDoubleClick={() => setMode(m => m === TreeMode.GIFT ? TreeMode.CHAOS : m === TreeMode.CHAOS ? TreeMode.FORMED : TreeMode.TEXT)}><Canvas camera={{ position: [0, 8, 28] }}><Experience mode={mode} /></Canvas></div>;
       };
 
-      const root = ReactDOM.createRoot(document.getElementById('root'));
-      root.render(<App />);
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
   </body>
 </html>

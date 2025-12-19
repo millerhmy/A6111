@@ -58,7 +58,7 @@ const FallingSnow: React.FC<{ mode: TreeMode }> = ({ mode }) => {
     uniforms: {
       uTime: { value: 0 },
       uColor: { value: new THREE.Color('#ffffff') },
-      uSize: { value: 120.0 }, // Increased size significantly
+      uSize: { value: 40.0 }, // Reduced size for natural look
     },
     vertexShader: `
       uniform float uTime;
